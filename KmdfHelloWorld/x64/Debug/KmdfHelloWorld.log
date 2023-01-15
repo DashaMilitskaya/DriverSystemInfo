@@ -1,0 +1,23 @@
+﻿  Building 'KmdfHelloWorld' with toolset 'WindowsKernelModeDriver10.0' and the 'Universal' target platform.
+  Stamping x64\Debug\KmdfHelloWorld.inf
+  Stamping [Version] section with DriverVer=01/03/2023,23.32.12.130
+  Driver.c
+  KmdfHelloWorld.vcxproj -> C:\Users\Даша\source\repos\KmdfHelloWorld\x64\Debug\KmdfHelloWorld.sys
+  Done Adding Additional Store
+  Successfully signed: C:\Users\\source\repos\KmdfHelloWorld\x64\Debug\KmdfHelloWorld.sys
+  
+  Driver is a Universal Driver.
+  ........................
+  Signability test complete.
+  
+  Errors:
+  None
+  
+  Warnings:
+  None
+  
+  Catalog generation complete.
+  C:\Users\Даша\source\repos\KmdfHelloWorld\x64\Debug\KmdfHelloWorld\kmdfhelloworld.cat
+  Done Adding Additional Store
+  Successfully signed: C:\Users\\source\repos\KmdfHelloWorld\x64\Debug\KmdfHelloWorld\kmdfhelloworld.cat
+  
