@@ -67,14 +67,21 @@ PVOID InitArgumentTable() {
 	return ContextTable;
 }
 
+void SaveOldKiSystemCall64() {
+	oldKiSystemCall64 = __readmsr(0xC0000082);
+}
+
 NTSTATUS hookSystemCallx64() {
 	if (ContextTable) return STATUS_SUCCESS;
+	
 	//KeLowerIrql(PASSIVE_LEVEL);
+	DbgPrint("Hooking KiSystemCall64");
 	if (InitArgumentTable()) {
 		oldKiSystemCall64 = __readmsr(0xC0000082);
 		writeLSTAR(HookSyscallEntryPoint); //To hook Syscallx64
 	}
 	return STATUS_SUCCESS;
+	
 }
 
 void UnHookSystemCallx64() {

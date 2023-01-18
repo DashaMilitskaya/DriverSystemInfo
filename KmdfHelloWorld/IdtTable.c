@@ -37,15 +37,25 @@ NTSTATUS showIdt(WDFREQUEST Request, size_t InputBufferLength, size_t OutputBuff
 
     TargetGroupAffinityThread.Group = TargetProcessor.Group;
     TargetGroupAffinityThread.Mask = (KAFFINITY)((1ULL) << TargetProcessor.Number);
+
+    LARGE_INTEGER interval;
+    interval.LowPart = 10;
+    interval.HighPart = 0;
+    interval.QuadPart = 0;
+    KeLowerIrql(PASSIVE_LEVEL);
     KeSetSystemGroupAffinityThread(&TargetGroupAffinityThread, &UserGroupAffinityThread);
+    KeDelayExecutionThread(KernelMode, FALSE, &interval);
+    
 
    // KeSetSystemAffinityThread(num); устарело с Vindows Vista
-    PKIDTENTRY64 idt = KeGetPcr()->IdtBase;
+    //PKIDTENTRY64 idt = KeGetPcr()->IdtBase;
+    
     __sidt(&idtr);
     //KeRevertToUserAffinityThread();
-    
+    PKIDTENTRY64 idt = idtr.Base;
+    KeLowerIrql(PASSIVE_LEVEL);
     KeRevertToUserGroupAffinityThread(&UserGroupAffinityThread);
-    
+    KeDelayExecutionThread(KernelMode, FALSE, &interval);
 
     DWORD maxNum = 0;
     if (idtr.Limit % sizeof(KIDTENTRY64) == 0) {//idtr.Pad[0] == 0xfff.
@@ -120,15 +130,18 @@ void WriteCR0(ULONG64 reg) {
 
 NTSTATUS setMyInterruptCp(ULONG index, ULONG_PTR address) {
     ULONG64 cr0;
-
+    //DbgBreakPoint();
     DbgPrint("\n New Interrupt Address: %p <> Index: %d", address, index);
 
     GDTINFO idtr = { 0 };
-    PKIDTENTRY64 idt_base = KeGetPcr()->IdtBase;
     __sidt(&idtr);
+    //PKIDTENTRY64 idt_base = KeGetPcr()->IdtBase;
+    PKIDTENTRY64 idt_base = idtr.Base;
 
     DbgPrint("\n IDT_BASE: %p \n", idt_base);
-  
+    DbgPrint("ProcessorNumberToSetInterrupt %d \n", KeGetCurrentProcessorIndex());
+    
+
     PKIDTENTRY64 pidt_item = (idt_base + index);
     
     ULONG_PTR ISR = pidt_item->OffsetHigh;
@@ -146,13 +159,14 @@ NTSTATUS setMyInterruptCp(ULONG index, ULONG_PTR address) {
     pidt_item->Present = 1;
     pidt_item->Dpl = 3;
     pidt_item->Selector = 0x10;
+    pidt_item->IstIndex = 0;
 
     WriteCR0(cr0);
 }
 
 NTSTATUS showInt3(){
     ULONG64 cr0;
-    UINT index = 3;
+    UINT index = 0x4c;
    // DbgPrint("\n New Interrupt Address: %p <> Index: %d", address, index);
     
     GDTINFO idtr = { 0 };
@@ -176,6 +190,8 @@ NTSTATUS showInt3(){
 
 
 void setMyInterrupt(ULONG index, ULONG_PTR address) {
+    //DbgBreakPoint();
+
     USHORT NumberOfGroups = KeQueryActiveGroupCount();
     for (USHORT gr = 0; gr < NumberOfGroups; gr++) {
         ULONG NumberOfProcessors = KeQueryActiveProcessorCountEx(gr);
@@ -184,14 +200,19 @@ void setMyInterrupt(ULONG index, ULONG_PTR address) {
             GROUP_AFFINITY TargetGroupAffinityThread;
             GROUP_AFFINITY UserGroupAffinityThread; // affinity of user mode thread
             TargetGroupAffinityThread.Group = gr;
-            TargetGroupAffinityThread.Mask = (KAFFINITY)((1ULL) << pr);
-            DbgPrint("PN: %d", NumberOfProcessors);
+            TargetGroupAffinityThread.Mask = (KAFFINITY)(((KAFFINITY)1ULL) << pr);
+            LARGE_INTEGER interval;
+            interval.LowPart = 10;
+            interval.HighPart = 0;
+            interval.QuadPart = 0;
+            KeLowerIrql(PASSIVE_LEVEL);
             KeSetSystemGroupAffinityThread(&TargetGroupAffinityThread, &UserGroupAffinityThread);
-
+            KeDelayExecutionThread(KernelMode, FALSE, &interval);
             setMyInterruptCp(index, address);//to hook IDT_item
 
+            KeLowerIrql(PASSIVE_LEVEL);
             KeRevertToUserGroupAffinityThread(&UserGroupAffinityThread);
-
+            KeDelayExecutionThread(KernelMode, FALSE, &interval);
         }
     }
 

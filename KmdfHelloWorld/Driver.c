@@ -12,10 +12,14 @@ EVT_WDF_DRIVER_DEVICE_ADD SystemTestEvtDeviceAdd;
 EVT_WDF_OBJECT_CONTEXT_CLEANUP SystemTestEvtDriverContextCleanup;
 EXTERN_C VOID HookSyscallEntryPoint();
 EXTERN_C VOID HookInterrupt();
-void DriverUnload(
-    _In_ DRIVER_OBJECT* DriverObject
-);
+EXTERN_C VOID UnHookInterrupt();
+EXTERN_C VOID GetSysNumInt();
+EXTERN_C VOID BufHookInterrupt();
 
+VOID
+Unload(
+    IN WDFDRIVER Driver
+);
 NTSTATUS
 DriverEntry(
     _In_ PDRIVER_OBJECT     DriverObject,
@@ -38,7 +42,7 @@ DriverEntry(
     DbgPrint("\n\n%p\n\n", idt_entries);*/
 
 
-    DriverObject->DriverUnload = DriverUnload;
+    //DriverObject->DriverUnload = DriverUnload;
     //showIdt(KeGetCurrentProcessorIndex());
   
     WDF_DRIVER_CONFIG config;
@@ -51,12 +55,13 @@ DriverEntry(
     //
     WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
     attributes.EvtCleanupCallback = SystemTestEvtDriverContextCleanup;
-
+    
     WDF_DRIVER_CONFIG_INIT(&config,
         SystemTestEvtDeviceAdd
     );
     
     //SystemCreateDevice();
+    config.EvtDriverUnload = Unload;
 
     status = WdfDriverCreate(
         DriverObject,
@@ -73,9 +78,22 @@ DriverEntry(
     }
     DbgPrint("\n my HookSyscallx64 address: %p \n", HookSyscallEntryPoint);
     DbgPrint("\n my Hook Interrupt: %p \n", HookInterrupt);
+
     setMyInterrupt(0x4c, HookInterrupt);
+    setMyInterrupt(0x4d, UnHookInterrupt);
+    setMyInterrupt(0x4e, BufHookInterrupt);
+    setMyInterrupt(0x4f, GetSysNumInt);
+
+    DbgPrint("int4c:");
     showInt3();
-    return status;
+    SaveOldKiSystemCall64();
+    
+    if (InitArgumentTable()) {
+        return status;
+    }
+    else 
+        return STATUS_ACCESS_DENIED;
+    
    
 }
 
@@ -108,8 +126,9 @@ SystemTestEvtDriverContextCleanup(
     //PAGED_CODE();
 }
 
-void DriverUnload(
-    _In_ DRIVER_OBJECT* DriverObject
+VOID
+Unload(
+    IN WDFDRIVER Driver
 )
 {
     UnHookSystemCallx64();

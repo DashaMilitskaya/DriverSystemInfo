@@ -5,7 +5,11 @@ EXTERN KiArgumentTable:DQ
 EXTERN NumSyscalls:DQ
 EXTERN oldKiSystemCall64:DQ
 EXTERN oldInterrupt:DQ
-EXTRN	__imp_KeLowerIrql:PROC
+EXTERN	__imp_KeLowerIrql:PROC
+
+; void* __cdecl memcpy(void* _Dst, void const* _Src, size_t _Size);
+extrn memcpy:PROC
+
 EXTERN hookSystemCallx64:PROC
 
 USERMD_STACK_GS = 10h
@@ -115,15 +119,12 @@ KiSystemCall64 ENDP
 
 
 
-;Прерывание
+;Прерывание 0x4c
 HookInterrupt PROC
     
     
     cmp rax, 0abcdh
     jne end_int_hook
-    swapgs 
-    mov         gs:[USERMD_STACK_GS], rsp
-    mov         rsp, gs:[KERNEL_STACK_GS]
     
     push rbp
     mov rbp, rsp
@@ -131,39 +132,160 @@ HookInterrupt PROC
     PUSH RAX
 	PUSH RCX
 	PUSH RDX
-
-	
+    push FS
+	push RBX
     
+    MOV RBX, 30h
+	MOV FS, RBX
+	XOR  RCX, RCX
+    
+    CALL QWORD PTR __imp_KeLowerIrql
+	
+    cli
+    
+    ;lea rax, [hookSystemCallx64] ;система почему то полностью зависает при этом вызове
     ;MOV RBX, 30h
 	;MOV FS, RBX
-	;XOR  RCX, RCX
-    ;CALL QWORD PTR __imp_KeLowerIrql
-	;CALL [hookSystemCallx64]
+	;;XOR  RCX, RCX
+    ;call rax
 	
     ;work only for one processor
     
-    mov rax, [HookSyscallEntryPoint]
+    lea rax, [HookSyscallEntryPoint]
 	mov rdx, rax
 	shr rdx, 32
 	mov rcx, 0C0000082h
 	wrmsr
-
+    
+    pop RBX
+	pop FS
 	
-	
-	POP RDX
+    POP RDX
 	POP RCX
 	POP RAX
 	
     mov rsp, rbp
     pop rbp
-    
-    end_int_hook:
-   
-    ;iretq
-    mov         rsp, gs:[USERMD_STACK_GS]   ; Usermode RSP
-	swapgs    
-	JMP [oldInterrupt] ;why it can down system?
-    
+
+	
+    end_int_hook: 
+    sti
+    iretq
 HookInterrupt ENDP
+
+; 0x4d
+UnHookInterrupt PROC
+    
+    
+    cmp rax, 0abcdh
+    jne end_int_uhook
+    
+    push rbp
+    mov rbp, rsp
+
+    PUSH RAX
+	PUSH RCX
+	PUSH RDX
+    push FS
+	push RBX
+    
+    MOV RBX, 30h
+	MOV FS, RBX
+	XOR  RCX, RCX
+    
+    ;CALL QWORD PTR __imp_KeLowerIrql
+	
+    cli
+	
+    ;work only for one processor
+    
+    mov rax, [oldKiSystemCall64]
+	mov rdx, rax
+	shr rdx, 32
+	mov rcx, 0C0000082h
+	wrmsr
+    
+    pop RBX
+	pop FS
+	
+    POP RDX
+	POP RCX
+	POP RAX
+	
+    mov rsp, rbp
+    pop rbp
+
+	
+    end_int_uhook: 
+    sti
+    iretq
+UnHookInterrupt ENDP
+
+;0x4f
+GetSysNumInt PROC
+    mov rax, [NumSyscalls]
+    iretq
+GetSysNumInt ENDP
+
+
+;rax - size
+;rdx - address
+;int 0x4e
+BufHookInterrupt PROC
+    
+   
+    ;cmp rax, [NumSyscalls]
+    ;jne end_int_bhook
+    
+    push rbp
+    mov rbp, rsp
+
+    PUSH RAX
+	PUSH RCX
+	PUSH RDX
+    push FS
+	push RBX
+    push r8
+
+    MOV RBX, 30h
+	MOV FS, RBX
+	XOR  RCX, RCX
+    
+    ;CALL QWORD PTR __imp_KeLowerIrql
+	
+    cli
+    
+    ;______
+    ;Возвращаем информацию о системных вызовах в буфер адрес которого в RDX
+    ;______
+        
+  ; rcx = * dst
+  ; rdx = * src
+  ; r8  = u64 size
+
+  mov rcx, rdx ;dst
+  mov rdx, [ContextTable] ;src
+  imul rax, 104
+  mov r8, rax   ;size
+  lea rbx, [memcpy]
+  call rbx   ; copy memory
+    ;_____
+
+    pop r8
+    pop RBX
+	pop FS
+	
+    POP RDX
+	POP RCX
+	POP RAX
+	
+    mov rsp, rbp
+    pop rbp
+
+	
+    end_int_bhook: 
+    sti
+    iretq
+BufHookInterrupt ENDP
 
 END

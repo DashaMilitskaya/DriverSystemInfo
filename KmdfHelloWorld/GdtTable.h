@@ -5,6 +5,7 @@
 #include <windef.h>
 #include <ntdef.h>
 
+#pragma pack(1)
 typedef struct
 {
 	WORD Limit;
@@ -14,6 +15,7 @@ typedef struct
 	DWORD Base;
 #endif // _WIN64
 } GDTINFO;
+#pragma pack()
 
 #ifdef _WIN64
 

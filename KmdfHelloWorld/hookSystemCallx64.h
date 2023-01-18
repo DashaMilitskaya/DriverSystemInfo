@@ -44,7 +44,8 @@ typedef union _callContect {
 NTSTATUS hookSystemCallx64();
 void UnHookSystemCallx64();
 void KernelPrintHookedItem();
-
+void SaveOldKiSystemCall64();
+PVOID InitArgumentTable();
 
 /*dps nt!KeServiceDescriptorTable L10
 fffff803`44250740  fffff803`44192640 nt!KiServiceTable

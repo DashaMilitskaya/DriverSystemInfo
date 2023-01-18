@@ -60,15 +60,21 @@ NTSTATUS showGdt(WDFREQUEST Request, size_t InputBufferLength, size_t OutputBuff
 	
 	TargetGroupAffinityThread.Group = TargetProcessor.Group;
 	TargetGroupAffinityThread.Mask = (KAFFINITY)((1ULL) << TargetProcessor.Number);
+	LARGE_INTEGER interval;
+	interval.LowPart = 10;
+	interval.HighPart = 0;
+	interval.QuadPart = 0;
+	KeLowerIrql(PASSIVE_LEVEL);
 	KeSetSystemGroupAffinityThread(&TargetGroupAffinityThread, &UserGroupAffinityThread);
+	KeDelayExecutionThread(KernelMode, FALSE, &interval);
 	
-	
-	PKGDTENTRY64 pkgdte = KeGetPcr()->GdtBase;
 	_sgdt(&GdtLimit);
+	PKGDTENTRY64 pkgdte = GdtLimit.Base;
+	
 
-	
+	KeLowerIrql(PASSIVE_LEVEL);
 	KeRevertToUserGroupAffinityThread(&UserGroupAffinityThread);
-	
+	KeDelayExecutionThread(KernelMode, FALSE, &interval);
 
 	//KeRevertToUserAffinityThread();
 	SIZE_T maxNum = (GdtLimit.Limit + 1) / sizeof(KGDTENTRY64);
